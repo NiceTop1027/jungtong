@@ -1,0 +1,1806 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>정통 포너블 에뮬레이터 • index.html</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;family=Noto+Sans+KR:wght@400;500;700&amp;display=swap');
+    
+    :root {
+      --accent: #22c55e;
+    }
+    
+    body {
+      font-family: 'Noto Sans KR', system-ui, sans-serif;
+    }
+    
+    .mono {
+      font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+    }
+
+    .terminal {
+      background: #0a0a0a;
+      font-family: 'JetBrains Mono', monospace;
+      scrollbar-width: thin;
+      scrollbar-color: #333 #111;
+    }
+
+    .memory-cell {
+      transition: all 0.1s ease;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .memory-cell.overwritten {
+      background-color: #3f1f1f !important;
+      border-color: #ef4444 !important;
+      color: #fca5a5;
+    }
+
+    .memory-cell.control {
+      background-color: #1f3a1f !important;
+      border-color: #22c55e !important;
+    }
+
+    .memory-cell.canary {
+      background-color: #3a2f1f !important;
+      border-color: #eab308 !important;
+    }
+
+    .stack-row {
+      font-size: 13px;
+      transition: background-color 0.15s ease;
+    }
+
+    .stack-row:hover {
+      background-color: #1a1a1a;
+    }
+
+    .stack-row.highlight {
+      background-color: #1f3a1f;
+      box-shadow: 0 0 0 1px #22c55e;
+    }
+
+    .reg-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-feature-settings: "tnum";
+    }
+
+    .section-title {
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    .hacker-green {
+      color: #22c55e;
+    }
+
+    .asm-line {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+    }
+
+    .payload-textarea {
+      font-family: 'JetBrains Mono', monospace;
+      background: #111;
+      resize: vertical;
+    }
+
+    .memory-table {
+      font-size: 12px;
+      border-collapse: separate;
+      border-spacing: 1px;
+    }
+
+    .addr {
+      color: #64748b;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .hex {
+      color: #e2e8f0;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .ascii {
+      color: #64748b;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .pwn-card {
+      transition: transform 0.1s ease, border-color 0.1s ease;
+    }
+    
+    .pwn-card:hover {
+      transform: translateY(-1px);
+    }
+
+    .pwn-card.active {
+      border-color: #22c55e;
+      box-shadow: 0 0 0 1px #22c55e;
+    }
+
+    .console-line {
+      padding: 1px 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .flag {
+      font-family: 'JetBrains Mono', monospace;
+      background: linear-gradient(90deg, #052e16, #14532d);
+      border: 1px solid #22c55e;
+      animation: flag-glow 2s infinite ease-in-out;
+    }
+
+    @keyframes flag-glow {
+      0%, 100% { box-shadow: 0 0 5px rgba(34, 197, 94, 0.4); }
+      50% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.7); }
+    }
+
+    .crash {
+      animation: crash-shake 0.4s ease;
+    }
+
+    @keyframes crash-shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-3px); }
+      40%, 80% { transform: translateX(3px); }
+    }
+
+    .mem-label {
+      font-size: 10px;
+      padding: 0 4px;
+      border-radius: 2px;
+    }
+
+    .vuln-code {
+      background: #0f0f0f;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .stack-visual {
+      max-height: 420px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-200">
+  <div class="max-w-[1280px] mx-auto">
+    <!-- Header -->
+    <div class="border-b border-zinc-800 bg-zinc-900 px-6 py-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-x-4">
+          <div class="flex items-center gap-x-3">
+            <div class="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center ring-1 ring-zinc-700">
+              <i class="fa-solid fa-bomb text-[#22c55e] text-2xl"></i>
+            </div>
+            <div>
+              <div class="flex items-baseline gap-x-2">
+                <span class="font-bold text-3xl tracking-tighter">PWN</span>
+                <span class="font-bold text-3xl tracking-tighter text-[#22c55e]">EMU</span>
+              </div>
+              <div class="text-[10px] text-zinc-500 -mt-1">정통 포너블 체험</div>
+            </div>
+          </div>
+          <div class="ml-2 px-3 py-1 bg-zinc-950 rounded-full text-xs border border-zinc-800 flex items-center gap-x-1.5">
+            <div class="w-2 h-2 bg-[#22c55e] rounded-full animate-pulse"></div>
+            <span class="text-zinc-400 text-xs font-medium">100% CLIENT-SIDE</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-x-2 text-sm">
+          <div class="flex items-center px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg">
+            <i class="fa-solid fa-microchip mr-2 text-zinc-500"></i>
+            <span class="text-xs text-zinc-400">x86-32 Simulator</span>
+          </div>
+          <div class="hidden xl:flex text-xs items-center gap-1 text-zinc-500 px-2">
+            <span class="px-1.5 py-px bg-zinc-800 rounded text-[10px]">/</span> 포커스 페이로드
+            <span class="ml-2 px-1.5 py-px bg-zinc-800 rounded text-[10px]">⌘/Ctrl+Enter</span> 실행
+          </div>
+          <div onclick="resetAll()" 
+               class="cursor-pointer flex items-center gap-x-2 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-lg text-xs transition-colors">
+            <i class="fa-solid fa-undo"></i>
+            <span>전체 리셋</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Challenge Selector -->
+    <div class="px-6 pt-6">
+      <div class="section-title mb-2 px-1">CHALLENGES</div>
+      <div class="flex flex-wrap gap-3" id="challenge-selector">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <div class="px-6 pt-5 grid grid-cols-1 xl:grid-cols-12 gap-5 pb-8">
+      
+      <!-- LEFT: SOURCE + INFO -->
+      <div class="xl:col-span-4 space-y-5">
+        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+          <div class="px-4 py-3 border-b border-zinc-800 bg-zinc-950 flex items-center justify-between">
+            <div class="flex items-center gap-x-2">
+              <i class="fa-solid fa-file-code text-zinc-400"></i>
+              <span class="font-semibold text-sm">vuln.c</span>
+            </div>
+            <div class="text-[10px] px-2 py-0.5 bg-zinc-800 rounded text-zinc-400 mono" id="challenge-info"></div>
+          </div>
+          <pre class="p-4 text-xs leading-[1.35] overflow-x-auto vuln-code" id="source-code"></pre>
+          <div class="border-t border-zinc-800 bg-zinc-950 px-3 py-2">
+            <div class="text-[10px] text-zinc-500 mb-1 px-1">DISASSEMBLY (simulated)</div>
+            <div class="mono text-[12px] leading-tight px-1 text-emerald-300" id="disasm-view"></div>
+          </div>
+        </div>
+
+        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+          <div class="section-title mb-2">공격 목표</div>
+          <div class="text-sm text-zinc-300" id="challenge-goal"></div>
+          
+          <div class="mt-4 pt-4 border-t border-zinc-800">
+            <div class="section-title mb-2">보호 메커니즘</div>
+            <div class="flex flex-wrap gap-1.5" id="protections"></div>
+          </div>
+        </div>
+
+        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-xs">
+          <div class="flex items-center gap-x-2 mb-2 text-amber-400">
+            <i class="fa-solid fa-lightbulb"></i>
+            <span class="font-semibold">힌트</span>
+          </div>
+          <div class="text-zinc-400 text-xs leading-relaxed" id="challenge-hint"></div>
+        </div>
+      </div>
+
+      <!-- CENTER: STACK + REGS -->
+      <div class="xl:col-span-5 space-y-4">
+        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+          <div class="px-4 py-3 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between">
+            <div class="flex items-center gap-x-2">
+              <i class="fa-solid fa-layer-group text-[#22c55e]"></i>
+              <span class="font-semibold">STACK VISUALIZER</span>
+            </div>
+            <div class="flex items-center gap-x-2">
+              <button onclick="stepInject()" 
+                      class="text-xs flex items-center gap-x-1.5 px-3 py-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg transition">
+                <i class="fa-solid fa-arrow-down"></i>
+                <span>주입</span>
+              </button>
+              <button onclick="stepReturn()" 
+                      class="text-xs flex items-center gap-x-1.5 px-3 py-1 bg-emerald-900 hover:bg-emerald-800 border border-emerald-700 text-emerald-400 rounded-lg transition">
+                <i class="fa-solid fa-reply"></i>
+                <span>RET 실행</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Registers -->
+          <div class="px-4 pt-4 pb-2 grid grid-cols-3 gap-2 bg-zinc-950/50">
+            <div class="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2">
+              <div class="text-[10px] text-zinc-500">EIP</div>
+              <div class="reg-value text-lg font-medium text-amber-400 mono" id="reg-eip">0x08048610</div>
+            </div>
+            <div class="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2">
+              <div class="text-[10px] text-zinc-500">EBP</div>
+              <div class="reg-value text-lg font-medium text-sky-400 mono" id="reg-ebp">0xffffd0c0</div>
+            </div>
+            <div class="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2">
+              <div class="text-[10px] text-zinc-500">ESP</div>
+              <div class="reg-value text-lg font-medium text-violet-400 mono" id="reg-esp">0xffffd080</div>
+            </div>
+          </div>
+
+          <!-- Stack -->
+          <div class="px-2 py-2">
+            <div class="px-2 pb-1 flex items-center justify-between text-xs">
+              <div class="text-zinc-500 flex items-center gap-x-1">
+                STACK <span class="text-zinc-600">(32-bit LE)</span>
+                <span class="text-emerald-700">↓ grows down</span>
+              </div>
+              <div onclick="clearHighlights()" class="cursor-pointer hover:text-zinc-400 text-zinc-500 flex items-center gap-x-1 text-[10px]">
+                <i class="fa-solid fa-eraser"></i> <span>하이라이트 제거</span>
+              </div>
+            </div>
+            
+            <div class="stack-visual border border-zinc-800 bg-zinc-950 rounded-xl p-1 text-xs" id="stack-visual">
+              <!-- JS populated rows -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Memory map quick info -->
+        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-xs">
+          <div class="grid grid-cols-2 gap-x-4 text-zinc-400">
+            <div><span class="text-zinc-500">Buffer start:</span> <span class="mono text-zinc-300" id="buf-addr">0xffffd088</span></div>
+            <div><span class="text-zinc-500">Return addr slot:</span> <span class="mono text-zinc-300" id="ret-addr">0xffffd0c4</span></div>
+            <div><span class="text-zinc-500">Win function:</span> <span class="mono text-emerald-400" id="win-addr">0x08048546</span></div>
+            <div><span class="text-zinc-500">Canary:</span> <span class="mono text-yellow-400" id="canary-val">—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: PAYLOAD + CONSOLE -->
+      <div class="xl:col-span-3 space-y-4">
+        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+          <div class="px-4 py-3 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between">
+            <span class="font-semibold text-sm">PAYLOAD</span>
+            <div class="flex gap-x-1">
+              <button onclick="copyPythonPayload()" 
+                      class="text-[11px] px-2 py-px bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded flex items-center gap-x-1">
+                <i class="fa-solid fa-copy text-[10px]"></i><span>py</span>
+              </button>
+              <button onclick="loadExamplePayload()" 
+                      class="text-[11px] px-2.5 py-px bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded">예시</button>
+              <button onclick="clearPayload()" 
+                      class="text-[11px] px-2.5 py-px bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded">지우기</button>
+            </div>
+          </div>
+          
+          <div class="p-3">
+            <textarea id="payload-input" rows="6" placeholder="A*40 + p32(0x08048546)&#10;또는 직접 hex 입력"
+              class="payload-textarea w-full px-3 py-2 text-sm rounded-xl border border-zinc-700 bg-zinc-950 focus:border-[#22c55e] outline-none font-medium"></textarea>
+            
+            <div class="mt-2 grid grid-cols-2 gap-2">
+              <button onclick="buildPayloadFromBuilder()"
+                      class="text-xs py-2 px-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 active:bg-zinc-950 rounded-xl flex items-center justify-center gap-x-2">
+                <i class="fa-solid fa-magic"></i>
+                <span>빌더로 생성</span>
+              </button>
+              <button onclick="injectPayloadAndRun()" 
+                      class="text-xs py-2 px-3 bg-[#22c55e] hover:bg-emerald-400 active:bg-emerald-500 transition text-black font-semibold rounded-xl flex items-center justify-center gap-x-2">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span>주입 후 실행</span>
+              </button>
+            </div>
+
+            <!-- Payload builder -->
+            <div id="payload-builder" class="mt-3 pt-3 border-t border-zinc-800">
+              <div class="text-xs mb-1.5 text-zinc-400">간편 빌더 (BOF용)</div>
+              <div class="grid grid-cols-5 gap-1.5">
+                <div>
+                  <div class="text-[10px] text-zinc-500 mb-0.5">패딩</div>
+                  <input id="pad-len" type="number" value="44" class="mono text-sm bg-zinc-950 border border-zinc-700 w-full rounded px-2 py-1">
+                </div>
+                <div>
+                  <div class="text-[10px] text-zinc-500 mb-0.5">패딩 문자</div>
+                  <input id="pad-char" value="A" class="mono text-sm bg-zinc-950 border border-zinc-700 w-full rounded px-2 py-1">
+                </div>
+                <div class="col-span-2">
+                  <div class="text-[10px] text-zinc-500 mb-0.5">RET 주소 (hex)</div>
+                  <input id="ret-target" value="0x08048546" class="mono text-sm bg-zinc-950 border border-zinc-700 w-full rounded px-2 py-1">
+                </div>
+                <div>
+                  <div class="text-[10px] text-zinc-500 mb-0.5">&nbsp;</div>
+                  <button onclick="applyBuilderToPayload()" class="text-xs h-[34px] w-full bg-zinc-800 hover:bg-zinc-700 rounded border border-zinc-700">적용</button>
+                </div>
+              </div>
+              <div class="text-[10px] text-zinc-600 mt-1">canary 도전 시 카나리 값도 payload에 포함해야 함</div>
+            </div>
+
+            <!-- Interactive BOF specific: real-like stdin input -->
+            <div id="interactive-area" class="mt-3 pt-3 border-t border-zinc-800" style="display:none">
+              <div class="text-xs mb-1 text-emerald-400 font-semibold">실제 프로그램처럼 입력</div>
+              <div class="flex gap-2">
+                <input id="interactive-stdin" type="text" class="flex-1 bg-zinc-950 border border-zinc-700 rounded px-2 py-1 text-sm mono" placeholder="Enter your name: " onkeydown="if (event.key === 'Enter') sendInteractiveStdin()">
+                <button onclick="sendInteractiveStdin()" class="px-3 py-1 bg-emerald-700 hover:bg-emerald-600 text-xs rounded">Send</button>
+              </div>
+              <div class="text-[10px] text-zinc-500 mt-1">gets() 에 직접 입력을 보내보세요. 길게 입력하면 BOF 발생.</div>
+            </div>
+
+            <!-- Real GDB-style Memory Examine on the right -->
+            <div class="mt-3 pt-3 border-t border-zinc-800">
+              <div class="flex items-center justify-between mb-1">
+                <div class="text-xs text-emerald-400 font-semibold">GDB: x/16wx (실제 메모리)</div>
+                <button onclick="renderGdbMemoryExamine()" class="text-[10px] px-1.5 py-0 bg-zinc-800 border border-zinc-700 rounded hover:bg-zinc-700">refresh</button>
+              </div>
+              <div id="gdb-memory-examine" 
+                   class="terminal bg-black text-[10px] p-2 rounded-lg border border-zinc-700 mono leading-tight min-h-[78px] max-h-[110px] overflow-auto whitespace-pre">
+                <span class="text-zinc-600">payload 주입하면 여기서 실제 스택 메모리가 gdb x/ 형식으로 보입니다.</span>
+              </div>
+
+              <!-- Small raw payload bytes the user provided -->
+              <div class="mt-2">
+                <div class="text-[10px] text-amber-400 mb-0.5">Last Parsed Payload (내가 넣은 원본 바이트)</div>
+                <div id="gdb-raw-payload" 
+                     class="terminal bg-black text-[9px] p-1.5 rounded border border-zinc-700 mono leading-tight max-h-[46px] overflow-auto"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Console -->
+        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden flex flex-col" style="height: 250px">
+          <div class="px-4 py-[9px] bg-zinc-950 border-b border-zinc-800 flex items-center justify-between flex-shrink-0">
+            <div class="flex items-center gap-x-2 text-sm">
+              <i class="fa-solid fa-terminal text-zinc-400"></i>
+              <span class="font-semibold">OUTPUT</span>
+            </div>
+            <button onclick="clearConsole()" class="text-xs px-2 py-px bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded">CLEAR</button>
+          </div>
+          <div id="console-output" 
+               class="terminal flex-1 p-3 text-sm overflow-auto text-emerald-300 leading-tight font-medium">
+          </div>
+          
+          <!-- Mini GDB / pwndbg style bar -->
+          <div class="bg-black border-t border-zinc-800 px-2 py-1.5 text-xs flex items-center gap-2">
+            <span class="text-emerald-600 font-bold px-1">(gdb)</span>
+            <input id="gdb-cmd" type="text" placeholder="ni  /  x/16wx $ebp-40  /  set $eip=..." 
+                   class="flex-1 bg-transparent text-xs mono border-0 focus:outline-none text-emerald-300 placeholder:text-zinc-700"
+                   onkeydown="if (event.key === 'Enter') handleGdbCommand(this.value)">
+            <button onclick="handleGdbCommand(document.getElementById('gdb-cmd').value)" 
+                    class="px-2 text-[10px] bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded">RUN</button>
+          </div>
+        </div>
+
+        <!-- Quick actions -->
+        <div class="flex flex-wrap gap-2">
+          <button onclick="runFullSimulation()" 
+                  class="flex-1 flex items-center justify-center gap-x-2 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-2xl text-sm transition">
+            <i class="fa-solid fa-play"></i>
+            <span>전체 시뮬레이션</span>
+          </button>
+          <button onclick="resetEmulator()" 
+                  class="flex items-center justify-center gap-x-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-2xl text-sm transition">
+            <i class="fa-solid fa-redo"></i>
+            <span>리셋</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom: Extra educational area -->
+    <div class="px-6 pb-8">
+      <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <span class="font-semibold">GDB Memory View</span>
+            <span class="text-xs text-zinc-500 ml-2">x/80bx $buf 주변 (초록=buffer / 노랑=control data)</span>
+          </div>
+          <button onclick="refreshHexdump()" class="text-xs flex items-center px-2.5 py-px gap-x-1 bg-zinc-800 border border-zinc-700 rounded hover:bg-zinc-700">
+            <i class="fa-solid fa-sync text-xs"></i>
+            <span>갱신</span>
+          </button>
+        </div>
+        
+        <div id="hexdump" 
+             class="terminal bg-black p-3 rounded-xl text-xs font-medium text-emerald-300 mono overflow-x-auto whitespace-pre leading-tight border border-zinc-800">
+        </div>
+      </div>
+    </div>
+
+    <div class="px-6 pb-8 text-center">
+      <div class="text-xs text-zinc-500">
+        이 페이지는 <span class="text-emerald-500">순수 HTML + JS</span>로만 구현된 교육용 포너블 에뮬레이터입니다.<br>
+        실제 바이너리 실행이 아닌 스택/메모리 동작을 시각적으로 체험할 수 있도록 설계되었습니다.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==================== TAILWIND CONFIG ====================
+    function initTailwind() {
+      document.documentElement.style.setProperty('--accent', '#22c55e');
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              mono: ['JetBrains Mono', 'monospace']
+            }
+          }
+        }
+      };
+    }
+
+    // ==================== EMULATOR CORE ====================
+    let currentChallenge = null;
+    let memory = null;
+    let STACK_BASE = 0xffffd200;
+    let STACK_SIZE = 512;
+    
+    let regs = {
+      eip: 0x08048610,
+      ebp: 0xffffd0c0,
+      esp: 0xffffd080
+    };
+    
+    let state = {
+      bufAddr: 0,
+      savedEbpAddr: 0,
+      retAddrAddr: 0,
+      canaryAddr: 0,
+      canaryValue: 0,
+      winAddr: 0,
+      bufferSize: 0,
+      hasCanary: false
+    };
+    
+    let consoleLines = [];
+    let lastPayload = [];
+
+    const CHALLENGES = [
+      {
+        id: 'ret2win',
+        title: 'ret2win',
+        subtitle: '기본 스택 버퍼 오버플로우',
+        difficulty: 'EASY',
+        difficultyColor: 'emerald',
+        source: `void win() {
+    puts("You win! FLAG{ret2win_master}");
+}
+
+void vulnerable() {
+    char buf[32];
+    gets(buf);          // ← 여기서 BOF
+    puts("Thanks!");
+}
+
+int main() {
+    vulnerable();
+    return 0;
+}`,
+        goal: "버퍼를 넘쳐서 saved EBP와 return address를 덮어써 win() 함수로 점프하세요.",
+        hint: "buf는 32바이트입니다. 32 + 8 (saved ebp + ret) 이상의 입력이 필요합니다. return address를 win 주소로 설정하세요.",
+        bufferSize: 32,
+        hasCanary: false,
+        winAddr: 0x08048546,
+        protections: ["No PIE", "No ASLR", "No NX", "No Canary"],
+        initialEbp: 0xffffd0c0,
+        bufOffset: 0x28,           // ebp - 0x28
+        canaryOffset: 0
+      },
+      {
+        id: 'canary',
+        title: 'Stack Canary',
+        subtitle: '스택 가드 우회 체험',
+        difficulty: 'MEDIUM',
+        difficultyColor: 'yellow',
+        source: `void win() {
+    puts("Pwned even with canary!");
+    puts("FLAG{canary_bypass_1337}");
+}
+
+void vulnerable() {
+    char buf[64];
+    gets(buf);
+}
+
+int main() { vulnerable(); }`,
+        goal: "카나리 값을 알아내거나 복구해서 리턴 주소를 덮어쓰세요. (데모용으로 스택에 카나리가 보입니다)",
+        hint: "스택에 카나리 값이 보입니다. 정확한 카나리 값을 payload에 포함해야 합니다. 실제로는 leak이 필요합니다.",
+        bufferSize: 64,
+        hasCanary: true,
+        winAddr: 0x080485aa,
+        protections: ["No PIE", "No ASLR", "Canary (demo leak)"],
+        initialEbp: 0xffffd120,
+        bufOffset: 0x48,
+        canaryOffset: 4
+      },
+      {
+        id: 'interactive',
+        title: 'Interactive BOF',
+        subtitle: '실제 프로그램처럼 입력하기',
+        difficulty: 'EASY',
+        difficultyColor: 'emerald',
+        source: `int main() {
+    char name[28];
+    printf("Enter your name: ");
+    gets(name);   // vulnerable
+    printf("Hello, %s!\\n", name);
+    
+    if (is_admin) {
+        system("/bin/sh");
+    }
+}`,
+        goal: "터미널처럼 입력을 보내면서 스택을 오버플로우시키고 플래그를 획득하세요.",
+        hint: "이름을 길게 입력해보세요. return address를 덮을 수 있는 위치를 계산해보세요.",
+        bufferSize: 28,
+        hasCanary: false,
+        winAddr: 0x08048710,
+        protections: ["No PIE", "No ASLR"],
+        initialEbp: 0xffffd0a0,
+        bufOffset: 0x20,
+        canaryOffset: 0
+      }
+    ];
+
+    function initMemory() {
+      memory = new Uint8Array(STACK_SIZE);
+    }
+
+    function addrToIndex(addr) {
+      if (addr > STACK_BASE || addr < STACK_BASE - STACK_SIZE + 8) {
+        // out of sim range
+        return -1;
+      }
+      return STACK_BASE - addr;
+    }
+
+    function writeByte(addr, val) {
+      const idx = addrToIndex(addr);
+      if (idx >= 0 && idx < memory.length) {
+        memory[idx] = val & 0xff;
+      }
+    }
+
+    function readByte(addr) {
+      const idx = addrToIndex(addr);
+      if (idx >= 0 && idx < memory.length) {
+        return memory[idx];
+      }
+      return 0;
+    }
+
+    function write32(addr, val) {
+      for (let i = 0; i < 4; i++) {
+        writeByte(addr + i, (val >>> (i * 8)) & 0xff);
+      }
+    }
+
+    function read32(addr) {
+      let v = 0;
+      for (let i = 0; i < 4; i++) {
+        v |= (readByte(addr + i) << (i * 8));
+      }
+      return v >>> 0;
+    }
+
+    function setInitialStack(chal) {
+      initMemory();
+      
+      const ebp = chal.initialEbp;
+      const bufAddr = ebp - chal.bufOffset;
+      const canaryAddr = ebp - chal.canaryOffset;
+      const retAddrAddr = ebp + 4;
+      const savedEbpAddr = ebp;
+      
+      state.bufAddr = bufAddr;
+      state.savedEbpAddr = savedEbpAddr;
+      state.retAddrAddr = retAddrAddr;
+      state.canaryAddr = canaryAddr;
+      state.winAddr = chal.winAddr;
+      state.bufferSize = chal.bufferSize;
+      state.hasCanary = chal.hasCanary;
+      
+      regs.ebp = ebp;
+      regs.esp = bufAddr - 8;
+      regs.eip = 0x08048610;
+      
+      // Initialize stack frame
+      // 1. Write initial return address (fake main return)
+      write32(retAddrAddr, 0x080486a0);
+      
+      // 2. Write saved ebp
+      write32(savedEbpAddr, 0xffffd0e0);
+      
+      // 3. Write canary if present (demo value)
+      if (chal.hasCanary) {
+        const canaryVal = 0xdeadb33f;
+        state.canaryValue = canaryVal;
+        write32(canaryAddr, canaryVal);
+      } else {
+        state.canaryValue = 0;
+      }
+      
+      // 4. Write some "stack garbage" around buffer
+      for (let i = -12; i < 80; i++) {
+        const a = bufAddr + i;
+        if (a !== retAddrAddr && a !== savedEbpAddr && a !== canaryAddr) {
+          // random-ish but deterministic
+          writeByte(a, (i * 17 + 0x41) & 0xff);
+        }
+      }
+      
+      // Make buffer area more readable initially
+      for (let i = 0; i < chal.bufferSize + 16; i++) {
+        writeByte(bufAddr + i, 0x00);
+      }
+      
+      updateMemoryInfo(chal);
+    }
+
+    function updateMemoryInfo(chal) {
+      document.getElementById('buf-addr').textContent = '0x' + state.bufAddr.toString(16).padStart(8, '0');
+      document.getElementById('ret-addr').textContent = '0x' + state.retAddrAddr.toString(16).padStart(8, '0');
+      document.getElementById('win-addr').textContent = '0x' + state.winAddr.toString(16).padStart(8, '0');
+      
+      const canaryEl = document.getElementById('canary-val');
+      if (state.hasCanary) {
+        canaryEl.textContent = '0x' + state.canaryValue.toString(16).padStart(8, '0');
+        canaryEl.className = 'mono text-yellow-400';
+      } else {
+        canaryEl.textContent = '—';
+        canaryEl.className = 'mono text-zinc-500';
+      }
+    }
+
+    function updateRegisters() {
+      document.getElementById('reg-eip').textContent = '0x' + regs.eip.toString(16).padStart(8, '0');
+      document.getElementById('reg-ebp').textContent = '0x' + regs.ebp.toString(16).padStart(8, '0');
+      document.getElementById('reg-esp').textContent = '0x' + regs.esp.toString(16).padStart(8, '0');
+    }
+
+    function getLabelForAddr(addr) {
+      if (addr === state.retAddrAddr) return { text: 'RET', cls: 'bg-emerald-800 text-emerald-400' };
+      if (addr === state.savedEbpAddr) return { text: 'SAVED EBP', cls: 'bg-sky-800 text-sky-400' };
+      if (state.hasCanary && addr === state.canaryAddr) return { text: 'CANARY', cls: 'bg-yellow-700 text-yellow-300' };
+      
+      const bufEnd = state.bufAddr + state.bufferSize;
+      if (addr >= state.bufAddr && addr < bufEnd) {
+        const off = addr - state.bufAddr;
+        return { text: `buf+${off}`, cls: 'bg-zinc-700 text-zinc-300' };
+      }
+      if (addr >= bufEnd && addr < state.retAddrAddr) {
+        return { text: 'pad', cls: 'bg-zinc-800 text-zinc-400' };
+      }
+      return null;
+    }
+
+    function renderStack() {
+      const container = document.getElementById('stack-visual');
+      container.innerHTML = '';
+      
+      if (!state.bufAddr || !state.retAddrAddr) {
+        container.innerHTML = '<div class="p-2 text-xs text-zinc-500">스택 초기화 필요. 챌린지 선택하세요.</div>';
+        return;
+      }
+
+      // Use STABLE addresses based on the vulnerable frame (state.*), 
+      // NOT the current regs.ebp (which gets corrupted by payload/return).
+      // This way the visual always shows the buffer + control data area with correct high addresses.
+      const retAddr = state.retAddrAddr;
+      const bufAddr = state.bufAddr;
+      const ebpAddr = state.savedEbpAddr || (retAddr - 4);
+
+      // Show a fixed window around the interesting area: above RET down past the buffer
+      let top = retAddr + 12;
+      let bottom = bufAddr - 32;
+      // Defensive: force high addresses so we never get 0x000000xx or negative garbage
+      if (top < 0x10000000) top = (state.retAddrAddr || 0xffffd0c4) + 12;
+      if (bottom < 0x10000000) bottom = (state.bufAddr || 0xffffd098) - 32;
+
+      const table = document.createElement('div');
+      table.className = 'font-mono text-xs';
+      
+      // Header
+      const header = document.createElement('div');
+      header.className = 'flex text-[10px] text-zinc-500 px-2 py-1 border-b border-zinc-800 mb-0.5';
+      header.innerHTML = `
+        <div class="w-[90px]">ADDR</div>
+        <div class="w-[86px]">VALUE</div>
+        <div class="flex-1">ASCII / NOTE</div>
+      `;
+      table.appendChild(header);
+      
+      for (let addr = top; addr >= bottom; addr -= 4) {
+        // Hard safety: if somehow addr became low, stop. Never show 0x0000xxxx garbage.
+        if (addr < 0x10000000) break;
+        const val = read32(addr);
+        const hex = val.toString(16).padStart(8, '0');
+        
+        const row = document.createElement('div');
+        row.className = 'stack-row flex items-center px-2 py-[2px] rounded border border-transparent';
+        
+        let ascii = '';
+        for (let i = 0; i < 4; i++) {
+          const b = readByte(addr + i);
+          ascii += (b >= 32 && b <= 126) ? String.fromCharCode(b) : '.';
+        }
+        
+        const label = getLabelForAddr(addr);
+        let labelHTML = '';
+        
+        if (label) {
+          labelHTML = `<span class="mem-label ml-2 ${label.cls}">${label.text}</span>`;
+        }
+        
+        let extraClass = '';
+        if (addr === state.retAddrAddr) extraClass = ' highlight';
+        
+        row.innerHTML = `
+          <div class="w-[90px] addr">0x${addr.toString(16).padStart(8,'0')}</div>
+          <div class="w-[86px] hex font-semibold">0x${hex}</div>
+          <div class="flex-1 flex items-center">
+            <span class="ascii mr-1.5 tracking-[1.5px]">${ascii}</span>
+            ${labelHTML}
+          </div>
+        `;
+        
+        row.className += extraClass;
+        
+        row.onclick = () => {
+          editStackWord(addr, val);
+        };
+        
+        table.appendChild(row);
+      }
+      
+      container.appendChild(table);
+      refreshHexdump();
+    }
+
+    function editStackWord(addr, currentVal) {
+      const newValStr = prompt(`0x${addr.toString(16).padStart(8, '0')} 값을 수정 (hex 32bit):`, '0x' + currentVal.toString(16).padStart(8, '0'));
+      if (!newValStr) return;
+      
+      let v = parseInt(newValStr, 16);
+      if (isNaN(v)) return;
+      
+      write32(addr, v);
+      renderStack();
+      updateRegisters();
+      addConsole(`[manual] 0x${addr.toString(16).padStart(8,'0')} ← 0x${v.toString(16).padStart(8,'0')}`);
+    }
+
+    function clearHighlights() {
+      const rows = document.querySelectorAll('#stack-visual .stack-row');
+      rows.forEach(r => r.classList.remove('highlight'));
+    }
+
+    function highlightAddr(addr) {
+      const rows = document.querySelectorAll('#stack-visual .stack-row');
+      rows.forEach(row => {
+        if (row.textContent.includes(addr.toString(16).padStart(8, '0'))) {
+          row.classList.add('highlight');
+        }
+      });
+    }
+
+    // ==================== PAYLOAD PARSING ====================
+    function parsePayload(input) {
+      if (!input || !input.trim()) return [];
+      
+      const str = input.trim();
+      let result = [];
+      
+      // 1. Collect all p32/p64 addresses (in order)
+      const addrMatches = [];
+      const addrRe = /p(?:32|64)\s*\(\s*(0x[0-9a-fA-F_]+|\d+)\s*\)/gi;
+      let m;
+      while ((m = addrRe.exec(str)) !== null) {
+        const numStr = m[1].replace(/_/g, '');
+        const n = parseInt(numStr, numStr.startsWith('0x') ? 16 : 10);
+        addrMatches.push(n >>> 0);
+      }
+      
+      // 2. Find padding repeat pattern "X" * N   (more forgiving)
+      let padLen = 0;
+      let padChar = 'A';
+      const repeatRe = /["']([\x20-\x7E])["']\s*\*\s*(\d+)|([A-Za-z0-9!@#$%^&*])\s*\*\s*(\d+)/gi;
+      let rmatch;
+      while ((rmatch = repeatRe.exec(str)) !== null) {
+        if (rmatch[1]) { // quoted
+          padChar = rmatch[1];
+          padLen = parseInt(rmatch[2], 10);
+        } else if (rmatch[3]) {
+          padChar = rmatch[3];
+          padLen = parseInt(rmatch[4], 10);
+        }
+      }
+      // Fallback: if no repeat but lots of same char at start, take it
+      if (padLen === 0) {
+        const leading = str.match(/^([A-Za-z])\1{3,}/);
+        if (leading) {
+          padChar = leading[1];
+          padLen = leading[0].length;
+        }
+      }
+      
+      // 3. Build result
+      padLen = Math.min(padLen || 0, 512);
+      for (let i = 0; i < padLen; i++) {
+        result.push(padChar.charCodeAt(0));
+      }
+      for (let addr of addrMatches) {
+        result.push(addr & 0xff);
+        result.push((addr >> 8) & 0xff);
+        result.push((addr >> 16) & 0xff);
+        result.push((addr >> 24) & 0xff);
+      }
+      
+      // 4. If nothing was parsed, fall back to old raw behavior
+      if (result.length === 0) {
+        // hex
+        const clean = str.replace(/\s+/g, '');
+        if (/^[0-9a-fA-F]+$/.test(clean) && clean.length % 2 === 0) {
+          for (let k = 0; k < clean.length; k += 2) result.push(parseInt(clean.substr(k, 2), 16));
+        } else {
+          // last resort: take printable chars only, or full
+          for (let i = 0; i < str.length; i++) {
+            const c = str.charCodeAt(i);
+            if (c >= 32 && c < 127) result.push(c);
+          }
+          if (result.length === 0) {
+            for (let i = 0; i < str.length; i++) result.push(str.charCodeAt(i) & 0xff);
+          }
+        }
+      }
+      
+      return result;
+    }
+
+    function bytesToString(bytes) {
+      return bytes.map(b => {
+        if (b >= 32 && b <= 126) return String.fromCharCode(b);
+        return '.';
+      }).join('');
+    }
+
+    // ==================== PROPER GDB EXAMINE VIEW (right side) ====================
+    let lastInjectedBytes = [];
+    let lastInjectedBase = 0;
+
+    // Show the raw bytes the user actually sent (parsed input)
+    function renderRawPayloadBytes(bytes) {
+      const el = document.getElementById('gdb-raw-payload');
+      if (!el) return;
+      if (!bytes || bytes.length === 0) {
+        el.textContent = '(no payload yet)';
+        return;
+      }
+      lastInjectedBytes = [...bytes];
+      lastInjectedBase = state.bufAddr || 0;
+
+      // Compact hex dump of exactly what was parsed from user input
+      let hex = '';
+      for (let i = 0; i < bytes.length; i++) {
+        hex += bytes[i].toString(16).padStart(2, '0');
+        if ((i + 1) % 8 === 0) hex += '  ';
+        else if ((i + 1) % 4 === 0) hex += ' ';
+      }
+      const ascii = bytes.map(b => (b >= 32 && b < 127) ? String.fromCharCode(b) : '.').join('');
+      const info = `<span class="text-amber-300">len=${bytes.length} @ 0x${lastInjectedBase.toString(16).padStart(8,'0')}</span>\n`;
+      el.innerHTML = info + `<span class="text-emerald-300">${hex.trim()}</span><br><span class="text-zinc-400 text-[8px]">ascii: ${ascii}</span>`;
+    }
+
+    // This is the main proper gdb memory examine - reads REAL current memory
+    function renderGdbMemoryExamine() {
+      const el = document.getElementById('gdb-memory-examine');
+      if (!el || !state.bufAddr) {
+        if (el) el.textContent = '에뮬레이터가 초기화되지 않았습니다.';
+        return;
+      }
+
+      const startAddr = Math.max(state.bufAddr - 16, state.bufAddr - 0x30);   // focus on buffer + saved ebp + ret
+      const numWords = 14;                   // nice amount for the panel
+      let output = '';
+
+      // Header like real gdb
+      output += `<span class="text-amber-300">(gdb) x/${numWords}wx 0x${startAddr.toString(16).padStart(8,'0')}</span>\n`;
+
+      for (let i = 0; i < numWords; i++) {
+        const addr = startAddr + (i * 4);
+        const word = read32(addr);
+        const hexWord = word.toString(16).padStart(8, '0');
+
+        // Determine if this word is important
+        let style = '';
+        if (addr === state.retAddrAddr) {
+          style = 'color:#f87171;font-weight:700;'; // red bold for return address
+        } else if (addr >= state.bufAddr && addr < state.bufAddr + (state.bufferSize || 32)) {
+          style = 'color:#4ade80;'; // green for buffer area
+        } else if (state.hasCanary && addr === state.canaryAddr) {
+          style = 'color:#facc15;'; // yellow for canary
+        }
+
+        let line = `0x${addr.toString(16).padStart(8,'0')}:  <span style="${style}">0x${hexWord}</span>   `;
+
+        // Add small ascii for the 4 bytes
+        let asc = '';
+        for (let j = 0; j < 4; j++) {
+          const b = readByte(addr + j);
+          asc += (b >= 32 && b < 127) ? String.fromCharCode(b) : '.';
+        }
+        line += `<span class="text-zinc-500">${asc}</span>`;
+
+        // If this is the return address slot, annotate
+        if (addr === state.retAddrAddr) {
+          const target = currentChallenge ? currentChallenge.winAddr : 0;
+          if (word === target) {
+            line += `  <span class="text-emerald-400">← WIN (0x${target.toString(16)})</span>`;
+          } else if (word !== 0x080486a0) { // not the original return
+            line += `  <span class="text-red-400">← overwritten</span>`;
+          }
+        }
+
+        output += line + '\n';
+      }
+
+      el.innerHTML = output.trim();
+
+      // keep bottom view in sync too
+      refreshHexdump();
+    }
+
+    function printGdbXCommand(bytes, baseAddr) {
+      // Print a clean gdb style examine USING ACTUAL MEMORY (not just input)
+      // This is more useful and "proper"
+      if (!baseAddr) baseAddr = state.bufAddr;
+      // Trigger the nice examine render instead of messy text
+      renderGdbMemoryExamine();
+
+      // Also a short one-liner in console
+      const w = read32(baseAddr);
+      addConsole(`(gdb) x/wx 0x${baseAddr.toString(16).padStart(8,'0')} → 0x${w.toString(16).padStart(8,'0')}`);
+    }
+
+    function clearParsedPayloadView() {
+      const raw = document.getElementById('gdb-raw-payload');
+      const mem = document.getElementById('gdb-memory-examine');
+      if (raw) raw.textContent = '(no payload yet)';
+      if (mem) mem.innerHTML = '<span class="text-zinc-600">주입 후 실제 메모리 상태가 여기에 gdb 형식으로 표시됩니다.</span>';
+      lastInjectedBytes = [];
+    }
+
+    // ==================== CORE ACTIONS ====================
+    function injectPayload(payloadBytes) {
+      if (!currentChallenge) return;
+      
+      // Reset buffer area first (optional but clean)
+      for (let i = 0; i < currentChallenge.bufferSize + 40; i++) {
+        writeByte(state.bufAddr + i, 0);
+      }
+      
+      // Actually write the payload
+      let overflowed = false;
+      payloadBytes.forEach((byte, i) => {
+        const targetAddr = state.bufAddr + i;
+        writeByte(targetAddr, byte);
+        
+        if (targetAddr >= state.canaryAddr && targetAddr <= state.retAddrAddr + 3) {
+          overflowed = true;
+        }
+      });
+      
+      lastPayload = [...payloadBytes];
+      
+      renderStack();
+      addConsole(`[inject] ${payloadBytes.length} bytes written @ 0x${state.bufAddr.toString(16).padStart(8,'0')}`);
+      
+      // Show the raw bytes the user sent
+      renderRawPayloadBytes(payloadBytes);
+      
+      // Show proper gdb memory examine from actual current memory
+      renderGdbMemoryExamine();
+      
+      if (overflowed) {
+        addConsole('%c[warn] Control data / canary area overwritten', 'color:#f59e0b');
+      }
+      
+      // Educational hint
+      if (currentChallenge && state.retAddrAddr && state.bufAddr) {
+        const neededForRet = state.retAddrAddr - state.bufAddr + 4;
+        if (payloadBytes.length < neededForRet && (currentChallenge.id === 'ret2win' || currentChallenge.id === 'interactive')) {
+          addConsole('%c[tip] ret 주소를 완전히 덮으려면 최소 ' + neededForRet + ' bytes가 필요합니다.', 'color:#64748b');
+        }
+      }
+    }
+
+    function stepInject() {
+      const input = document.getElementById('payload-input').value;
+      const bytes = parsePayload(input);
+      
+      if (bytes.length === 0) {
+        addConsole('%c[error] Payload가 비어있습니다', 'color:#f87171');
+        return;
+      }
+      
+      injectPayload(bytes);
+      highlightAddr(state.retAddrAddr);
+      
+      setTimeout(() => {
+        const rows = document.querySelectorAll('#stack-visual .stack-row');
+        rows.forEach(r => r.classList.remove('highlight'));
+      }, 1600);
+    }
+
+    function stepReturn() {
+      if (!currentChallenge) return;
+      
+      // Simulate function return
+      const savedEbp = read32(state.savedEbpAddr);
+      const retAddr = read32(state.retAddrAddr);
+      
+      addConsole(`[ret] saved-ebp=0x${savedEbp.toString(16).padStart(8,'0')} ret=0x${retAddr.toString(16).padStart(8,'0')}`);
+      
+      // Canary check
+      if (state.hasCanary) {
+        const currentCanary = read32(state.canaryAddr);
+        if (currentCanary !== state.canaryValue) {
+          addConsole('%c*** stack smashing detected ***: buffer overflow attack', 'color:#ef4444;font-weight:700');
+          const container = document.getElementById('stack-visual');
+          container.classList.add('crash');
+          setTimeout(() => container.classList.remove('crash'), 500);
+          return;
+        }
+      }
+      
+      // Perform return
+      regs.ebp = savedEbp;
+      regs.eip = retAddr;
+      regs.esp = state.retAddrAddr + 4;
+      
+      updateRegisters();
+      renderStack();
+      renderGdbMemoryExamine();
+      
+      const win = currentChallenge.winAddr;
+      
+      if (retAddr === win) {
+        triggerWin();
+      } else if (retAddr < 0x08000000 || retAddr > 0x09ffffff) {
+        addConsole('%c[segfault] invalid return address (0x' + retAddr.toString(16).padStart(8,'0') + ')', 'color:#ef4444');
+        document.getElementById('stack-visual').classList.add('crash');
+        setTimeout(() => {
+          document.getElementById('stack-visual').classList.remove('crash');
+        }, 420);
+      } else {
+        addConsole(`[ret] jumped to 0x${retAddr.toString(16).padStart(8,'0')}. not win.`);
+      }
+    }
+
+    function triggerWin() {
+      const output = document.getElementById('console-output');
+      
+      addConsole('%c\n*** WINNER ***', 'color:#22c55e; font-weight:700; font-size:15px');
+      
+      let flag = 'FLAG{you_are_a_true_pwner}';
+      
+      if (currentChallenge.id === 'ret2win') flag = 'FLAG{ret2win_master}';
+      else if (currentChallenge.id === 'canary') flag = 'FLAG{canary_bypass_1337}';
+      else if (currentChallenge.id === 'interactive') flag = 'FLAG{interactive_bof_2026}';
+      
+      const flagEl = document.createElement('div');
+      flagEl.className = `mt-2 px-4 py-3 flag rounded-2xl text-[#22c55e] text-sm font-bold mono flex items-center gap-x-2`;
+      flagEl.innerHTML = `
+        <i class="fa-solid fa-trophy text-xl"></i>
+        <div>
+          <div class="text-emerald-400 text-xs tracking-widest">CONGRATULATIONS</div>
+          <div class="text-lg">${flag}</div>
+        </div>
+      `;
+      
+      output.appendChild(flagEl);
+      output.scrollTop = output.scrollHeight;
+      
+      // Fireworks / nice effect
+      createSuccessEffect();
+    }
+
+    function createSuccessEffect() {
+      const colors = ['#22c55e', '#86efac', '#4ade80'];
+      for (let i = 0; i < 32; i++) {
+        setTimeout(() => {
+          const p = document.createElement('div');
+          p.style.position = 'fixed';
+          p.style.left = Math.random() * window.innerWidth + 'px';
+          p.style.top = '-10px';
+          p.style.width = '6px';
+          p.style.height = '6px';
+          p.style.borderRadius = '50%';
+          p.style.background = colors[i % colors.length];
+          p.style.opacity = Math.random() * 0.8 + 0.3;
+          p.style.zIndex = '999999';
+          p.style.pointerEvents = 'none';
+          document.body.appendChild(p);
+          
+          const duration = 1200 + Math.random() * 800;
+          p.animate([
+            { transform: `translateY(0) rotate(0deg)`, opacity: p.style.opacity },
+            { transform: `translateY(${window.innerHeight + 80}px) rotate(${Math.random() * 360 + 120}deg)`, opacity: 0 }
+          ], {
+            duration: duration,
+            easing: 'cubic-bezier(0.2, 0.1, 0.3, 1)'
+          }).onfinish = () => p.remove();
+        }, i * 2.5);
+      }
+    }
+
+    function runFullSimulation() {
+      if (!currentChallenge) return;
+      resetEmulator();
+      
+      setTimeout(() => {
+        const payloadInput = document.getElementById('payload-input').value.trim();
+        let bytes = [];
+        
+        if (payloadInput) {
+          bytes = parsePayload(payloadInput);
+        } else {
+          // Auto build a reasonable payload
+          const chal = currentChallenge;
+          const needed = (state.retAddrAddr && state.bufAddr) ? (state.retAddrAddr - state.bufAddr) : (chal.bufferSize + 12);
+          bytes = Array(needed).fill(0x41);
+          
+          // overwrite ret
+          const ret = chal.winAddr;
+          bytes.push(ret & 0xff);
+          bytes.push((ret >> 8) & 0xff);
+          bytes.push((ret >> 16) & 0xff);
+          bytes.push((ret >> 24) & 0xff);
+        }
+        
+        injectPayload(bytes);
+        
+        setTimeout(() => {
+          stepReturn();
+        }, 220);
+      }, 80);
+    }
+
+    function injectPayloadAndRun() {
+      const input = document.getElementById('payload-input').value;
+      const bytes = parsePayload(input);
+      
+      if (bytes.length < 10) {
+        addConsole('%c[error] 페이로드가 너무 짧습니다', 'color:#f87171');
+        return;
+      }
+      
+      resetEmulator(true);
+      
+      setTimeout(() => {
+        injectPayload(bytes);
+        
+        setTimeout(() => {
+          stepReturn();
+        }, 180);
+      }, 40);
+    }
+
+    // ==================== INTERACTIVE BOF - real stdin simulation ====================
+    function sendInteractiveStdin() {
+      const inputEl = document.getElementById('interactive-stdin');
+      if (!inputEl || !currentChallenge || currentChallenge.id !== 'interactive') return;
+
+      const userInput = inputEl.value || '';
+      if (!userInput) {
+        addConsole('%c[error] 입력이 비어있습니다', 'color:#f87171');
+        return;
+      }
+
+      const bytes = [];
+      for (let i = 0; i < userInput.length; i++) {
+        bytes.push(userInput.charCodeAt(i));
+      }
+
+      const out = document.getElementById('console-output');
+      addConsole(`Enter your name: ${userInput}`);
+
+      // Inject the input into the vulnerable buffer (triggers BOF if long)
+      injectPayload(bytes);
+
+      setTimeout(() => {
+        const rendered = userInput.substring(0, 50);
+        addConsole(`Hello, ${rendered}${userInput.length > 50 ? '...' : ''}`);
+
+        setTimeout(() => {
+          const ret = read32(state.retAddrAddr);
+          if (ret === currentChallenge.winAddr) {
+            addConsole('%c[admin] is_admin 플래그 덮어씀! shell access!', 'color:#22c55e;font-weight:bold');
+            triggerWin();
+          } else if (bytes.length > state.bufferSize + 8) {
+            addConsole('%c[crash] return address corrupted', 'color:#ef4444');
+          } else {
+            addConsole('Program exited normally.');
+          }
+        }, 120);
+      }, 60);
+
+      inputEl.value = '';
+    }
+
+    // ==================== CONSOLE ====================
+    function addConsole(text, style = '') {
+      const output = document.getElementById('console-output');
+      
+      const line = document.createElement('div');
+      line.className = 'console-line';
+      
+      if (style) {
+        line.style.cssText = style;
+      }
+      
+      // Support %c simple style
+      if (text.includes('%c')) {
+        const parts = text.split('%c');
+        line.textContent = parts[0] + parts[1];
+        if (parts.length > 2 && parts[1]) {
+          // crude
+          line.style.cssText = parts[1];
+        }
+      } else {
+        line.textContent = text;
+      }
+      
+      output.appendChild(line);
+      output.scrollTop = output.scrollHeight;
+      
+      consoleLines.push(text);
+      if (consoleLines.length > 30) consoleLines.shift();
+    }
+
+    function clearConsole() {
+      document.getElementById('console-output').innerHTML = '';
+      consoleLines = [];
+    }
+
+    function handleGdbCommand(cmdRaw) {
+      const cmd = (cmdRaw || '').trim();
+      if (!cmd) return;
+      
+      const out = document.getElementById('console-output');
+      addConsole(`(gdb) ${cmd}`);
+      
+      const c = cmd.toLowerCase();
+      
+      if (c.startsWith('ni') || c === 'next' || c === 'n') {
+        stepReturn();
+      } else if (c === 'c' || c === 'continue') {
+        runFullSimulation();
+      } else if (c.startsWith('x/') || c.startsWith('x ')) {
+        // e.g. x/12wx $ebp-0x30
+        let addr = 0;
+        const match = cmd.match(/0x[0-9a-f]+/i);
+        if (match) addr = parseInt(match[0], 16);
+        else if (cmd.includes('ebp')) addr = regs.ebp;
+        else if (cmd.includes('esp')) addr = regs.esp;
+        else if (cmd.includes('eip')) addr = regs.eip;
+        
+        let n = 16;
+        const numMatch = cmd.match(/\/(\d+)/);
+        if (numMatch) n = parseInt(numMatch[1]) * 4;
+        
+        let dump = '';
+        for (let i = 0; i < n; i += 4) {
+          dump += `0x${(addr + i).toString(16).padStart(8,'0')}:  0x${read32(addr + i).toString(16).padStart(8,'0')}\n`;
+        }
+        addConsole(dump.trim());
+      } else if (c.startsWith('set ')) {
+        // set *0x.... = val   or set $eip = ...
+        const hexMatch = cmd.match(/0x([0-9a-f]+)/i);
+        const valMatch = cmd.match(/=\s*(0x[0-9a-f]+|\d+)/i);
+        if (hexMatch && valMatch) {
+          const a = parseInt(hexMatch[0], 16);
+          const v = parseInt(valMatch[1], valMatch[1].startsWith('0x') ? 16 : 10);
+          write32(a, v);
+          renderStack();
+          addConsole(`0x${a.toString(16)} <- 0x${v.toString(16)}`);
+        } else if (cmd.includes('$eip')) {
+          const vMatch = cmd.match(/0x[0-9a-f]+|\d+/);
+          if (vMatch) regs.eip = parseInt(vMatch[0], vMatch[0].startsWith('0x') ? 16 : 10);
+          updateRegisters();
+        }
+      } else if (c === 'info reg' || c === 'i r') {
+        addConsole(`eip: 0x${regs.eip.toString(16)}   ebp: 0x${regs.ebp.toString(16)}   esp: 0x${regs.esp.toString(16)}`);
+      } else if (c === 'stack' || c.startsWith('bt')) {
+        renderStack();
+        addConsole('Stack refreshed.');
+      } else {
+        addConsole('Command not implemented in emulator.');
+      }
+      
+      document.getElementById('gdb-cmd').value = '';
+    }
+
+    // ==================== HEXDUMP ====================
+    function renderDisassembly(chal) {
+      const el = document.getElementById('disasm-view');
+      if (!el || !chal) return;
+
+      let asm = '';
+      if (chal.id === 'ret2win' || chal.id === 'interactive') {
+        asm = `
+0x08048520 &lt;vulnerable&gt;:  push   ebp
+0x08048521 &lt;vulnerable+1&gt;:   mov    ebp,esp
+0x08048523 &lt;vulnerable+3&gt;:   sub    esp,0x${(chal.bufferSize + 8).toString(16)}
+0x08048526 &lt;vulnerable+6&gt;:   lea    eax,[ebp-0x${chal.bufOffset.toString(16)}]
+0x08048529 &lt;vulnerable+9&gt;:   push   eax
+0x0804852a &lt;vulnerable+10&gt;:  call   0x80483a0 &lt;gets@plt&gt;
+0x0804852f &lt;vulnerable+15&gt;:  add    esp,4
+0x08048532 &lt;vulnerable+18&gt;:  leave
+0x08048533 &lt;vulnerable+19&gt;:  ret
+0x08048546 &lt;win&gt;:            push   ebp
+0x08048547 &lt;win+1&gt;:           call   0x8048410 &lt;puts&gt;
+0x0804854f &lt;win+9&gt;:           ret`;
+      } else if (chal.id === 'canary') {
+        asm = `
+0x08048580 &lt;vulnerable&gt;:  push   ebp
+0x08048581 &lt;vulnerable+1&gt;:   mov    ebp,esp
+0x08048583 &lt;vulnerable+3&gt;:   sub    esp,0x50
+0x08048586 &lt;vulnerable+6&gt;:   mov    eax,gs:0x14     ; canary load
+0x0804858c &lt;vulnerable+12&gt;:  mov    [ebp-0x4],eax   ; store canary
+...
+0x080485a0 &lt;vulnerable+xx&gt;:  call   gets
+0x080485aa &lt;win&gt;:            ... pwned path`;
+      } else {
+        asm = '0x08048610:  sub esp, ...   ; ret ;  (RET2WIN style)';
+      }
+      el.innerHTML = asm.trim();
+    }
+
+    function refreshHexdump() {
+      const el = document.getElementById('hexdump');
+      if (!state.bufAddr) {
+        el.textContent = '스택이 초기화되지 않았습니다.';
+        return;
+      }
+      
+      const start = state.bufAddr - 4;
+      let out = '';
+      const bufEnd = state.bufAddr + (state.bufferSize || 32);
+      const retStart = state.retAddrAddr || 0;
+      
+      for (let row = 0; row < 5; row++) {
+        const addr = start + row * 16;
+        let line = `<span class="text-amber-300">0x${addr.toString(16).padStart(8,'0')}</span>  `;
+        
+        let hexPart = '';
+        let asciiPart = '';
+        
+        for (let c = 0; c < 16; c++) {
+          const a = addr + c;
+          const b = readByte(a);
+          
+          // highlight payload area
+          let style = '';
+          if (a >= state.bufAddr && a < bufEnd) style = 'color:#4ade80;font-weight:600;';           // buffer = green
+          else if (a >= state.bufAddr && a < retStart + 4) style = 'color:#facc15;';                   // control area = yellow
+          
+          hexPart += `<span style="${style}">${b.toString(16).padStart(2,'0')}</span> `;
+          asciiPart += (b >= 32 && b < 127) ? String.fromCharCode(b) : '.';
+        }
+        
+        line += hexPart + ' <span class="text-zinc-600">|</span>' + asciiPart;
+        out += line + '\n';
+      }
+      
+      el.innerHTML = out.trim();
+    }
+
+    // ==================== PAYLOAD BUILDER ====================
+    function applyBuilderToPayload() {
+      let padLen = parseInt(document.getElementById('pad-len').value) || 44;
+      const padChar = (document.getElementById('pad-char').value || 'A').charAt(0);
+      let retStr = document.getElementById('ret-target').value.trim();
+      
+      let ret = currentChallenge ? currentChallenge.winAddr : 0x08048546;
+      if (retStr.startsWith('0x')) ret = parseInt(retStr, 16) || ret;
+      else if (retStr) ret = parseInt(retStr, 16) || ret;
+      
+      // Auto-compute correct pad to land on return address if we have state
+      if (currentChallenge && state.bufAddr && state.retAddrAddr) {
+        const needed = state.retAddrAddr - state.bufAddr;
+        // If user left the default-ish 40/44, override with correct
+        if (padLen === 40 || padLen === 44 || padLen === 36) {
+          padLen = needed;
+          document.getElementById('pad-len').value = padLen;
+        }
+      }
+      
+      // Build nice python-like representation
+      let py = `"${padChar}"*${padLen} + p32(0x${ret.toString(16).padStart(8, '0')})`;
+      
+      // Directly compute correct bytes
+      let bytes = [];
+      for (let i = 0; i < padLen; i++) bytes.push(padChar.charCodeAt(0));
+      bytes.push(ret & 0xff);
+      bytes.push((ret >> 8) & 0xff);
+      bytes.push((ret >> 16) & 0xff);
+      bytes.push((ret >> 24) & 0xff);
+      
+      document.getElementById('payload-input').value = py;
+      
+      // Preview the parsed bytes + real gdb memory view on right
+      renderRawPayloadBytes(bytes);
+      renderGdbMemoryExamine();
+      
+      // preview
+      addConsole(`[builder] ${bytes.length} bytes ready (pad=${padLen} for ret overwrite)`);
+    }
+
+    function buildPayloadFromBuilder() {
+      applyBuilderToPayload();
+    }
+
+    function loadExamplePayload() {
+      if (!currentChallenge) return;
+      
+      const ta = document.getElementById('payload-input');
+      
+      if (currentChallenge.id === 'ret2win') {
+        ta.value = `"A"*44 + p32(0x08048546)`;
+      } else if (currentChallenge.id === 'canary') {
+        const canary = state.canaryValue || 0xdeadb33f;
+        const win = currentChallenge.winAddr || 0x080485aa;
+        ta.value = `"A"*68 + p32(0x${canary.toString(16)}) + p32(0xffffd0e0) + p32(0x${win.toString(16)})`;
+      } else {
+        ta.value = `"A"*36 + p32(0x08048710)`;
+      }
+    }
+
+    function clearPayload() {
+      document.getElementById('payload-input').value = '';
+    }
+
+    function copyPythonPayload() {
+      const ta = document.getElementById('payload-input');
+      if (!ta.value.trim() && currentChallenge) {
+        const chal = currentChallenge;
+        if (chal.id === 'canary') {
+          const c = state.canaryValue || 0xdeadb33f;
+          ta.value = `"A"*68 + p32(0x${c.toString(16)}) + p32(0xffffd0e0) + p32(0x${chal.winAddr.toString(16)})`;
+        } else {
+          const pad = chal.bufferSize + 8;
+          ta.value = `"A"*${pad} + p32(0x${chal.winAddr.toString(16)})`;
+        }
+      }
+      navigator.clipboard.writeText(ta.value).then(() => {
+        const orig = ta.style.border;
+        ta.style.border = '1px solid #22c55e';
+        setTimeout(() => { ta.style.border = orig || '1px solid #3f3f46'; }, 650);
+      }).catch(() => {
+        // fallback
+        ta.select(); document.execCommand('copy');
+      });
+    }
+
+    // ==================== CHALLENGE SETUP ====================
+    function selectChallenge(chal) {
+      currentChallenge = chal;
+      
+      // Update UI active state
+      document.querySelectorAll('.pwn-card').forEach(card => {
+        card.classList.toggle('active', card.dataset.id === chal.id);
+      });
+      
+      // Source code
+      const sourceEl = document.getElementById('source-code');
+      sourceEl.innerHTML = `<code class="language-c">${escapeHtml(chal.source)}</code>`;
+      
+      // Simulated disassembly
+      renderDisassembly(chal);
+      
+      // Goal & Hint
+      document.getElementById('challenge-goal').innerHTML = chal.goal;
+      document.getElementById('challenge-hint').innerHTML = chal.hint;
+      document.getElementById('challenge-info').innerHTML = `${chal.difficulty} • ${chal.bufferSize}B buffer`;
+      
+      // Protections
+      const protEl = document.getElementById('protections');
+      protEl.innerHTML = chal.protections.map(p => {
+        return `<span class="text-[10px] px-2 py-px bg-zinc-800 border border-zinc-700 rounded-full">${p}</span>`;
+      }).join('');
+      
+      // Setup emulator
+      setInitialStack(chal);
+      updateRegisters();
+      renderStack();
+      clearConsole();
+      clearParsedPayloadView();
+      renderGdbMemoryExamine();
+      
+      // Default payload example
+      const ta = document.getElementById('payload-input');
+      if (chal.id === 'ret2win') {
+        ta.value = `"A"*44 + p32(0x08048546)`;
+        document.getElementById('pad-len').value = '44';
+        document.getElementById('ret-target').value = '0x' + chal.winAddr.toString(16);
+      } else if (chal.id === 'canary') {
+        const can = state.canaryValue || 0xdeadb33f;
+        ta.value = `"A"*68 + p32(0x${can.toString(16)}) + p32(0xffffd0e0) + p32(0x${chal.winAddr.toString(16)})`;
+        document.getElementById('pad-len').value = '68';
+        document.getElementById('ret-target').value = '0x' + chal.winAddr.toString(16);
+      } else {
+        ta.value = `"A"*36 + p32(0x08048710)`;
+        document.getElementById('pad-len').value = '36';
+        document.getElementById('ret-target').value = '0x' + chal.winAddr.toString(16);
+      }
+      
+      // Preview default example in gdb views right away
+      setTimeout(() => {
+        try {
+          const defBytes = parsePayload(ta.value);
+          if (defBytes.length > 0) {
+            renderRawPayloadBytes(defBytes);
+            renderGdbMemoryExamine();
+          }
+        } catch(e){}
+      }, 80);
+      
+      // For interactive, optionally prefill a demo long input in stdin
+      if (chal.id === 'interactive') {
+        setTimeout(() => {
+          const s = document.getElementById('interactive-stdin');
+          if (s && !s.value) s.value = 'A'.repeat(40);
+        }, 120);
+      }
+      
+      // Interactive mode hint
+      if (chal.id === 'interactive') {
+        addConsole('%c[interactive] 터미널 모드 활성화됨. 아래 입력창으로 직접 입력해보세요.', 'color:#64748b');
+      }
+      
+      // Toggle interactive input area
+      const interArea = document.getElementById('interactive-area');
+      if (interArea) {
+        interArea.style.display = (chal.id === 'interactive') ? '' : 'none';
+      }
+      
+      // For interactive, hide complex builder to focus on real input
+      const builder = document.getElementById('payload-builder');
+      if (builder) {
+        builder.style.display = (chal.id === 'interactive') ? 'none' : '';
+      }
+      
+      // Auto focus stdin for interactive
+      if (chal.id === 'interactive') {
+        setTimeout(() => {
+          const stdin = document.getElementById('interactive-stdin');
+          if (stdin) stdin.focus();
+        }, 100);
+      }
+      
+      refreshHexdump();
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[m]);
+    }
+
+    function renderChallengeSelector() {
+      const container = document.getElementById('challenge-selector');
+      container.innerHTML = '';
+      
+      CHALLENGES.forEach(chal => {
+        const card = document.createElement('div');
+        card.className = `pwn-card cursor-pointer flex-1 min-w-[180px] px-4 py-3 rounded-2xl border bg-zinc-900 border-zinc-700 hover:border-zinc-600`;
+        card.dataset.id = chal.id;
+        
+        const diffColor = chal.difficultyColor === 'emerald' ? 'emerald' : 'amber';
+        
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <div>
+              <div class="font-semibold text-base">${chal.title}</div>
+              <div class="text-xs text-zinc-400">${chal.subtitle}</div>
+            </div>
+            <div class="text-[10px] px-2 py-0.5 rounded bg-${diffColor}-900 text-${diffColor}-400 border border-${diffColor}-700 self-start">${chal.difficulty}</div>
+          </div>
+        `;
+        
+        card.onclick = () => selectChallenge(chal);
+        container.appendChild(card);
+      });
+    }
+
+    // ==================== INIT ====================
+    function initEmulator() {
+      initMemory();
+      
+      // Load first challenge
+      renderChallengeSelector();
+      selectChallenge(CHALLENGES[0]);
+      
+      // Keyboard shortcuts
+      document.addEventListener('keydown', (e) => {
+        if (e.key === '/' && document.activeElement.tagName === 'BODY') {
+          e.preventDefault();
+          document.getElementById('payload-input').focus();
+        }
+        
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'enter') {
+          e.preventDefault();
+          const payload = document.getElementById('payload-input').value;
+          if (payload.trim()) {
+            injectPayloadAndRun();
+          } else {
+            runFullSimulation();
+          }
+        }
+      });
+      
+      // Initial console message
+      setTimeout(() => {
+        const c = document.getElementById('console-output');
+        c.innerHTML = `<div class="text-zinc-500 text-xs">정통 포너블 에뮬레이터에 오신 것을 환영합니다.<br>페이로드를 작성하고 <span class="text-[#22c55e]">주입 후 실행</span> 하세요. (Ctrl/Cmd + Enter)</div>`;
+      }, 300);
+      
+      // Seed a small example explanation in hexdump area
+      setTimeout(() => {
+        const h = document.getElementById('hexdump');
+        if (h && h.textContent.trim() === '') {
+          refreshHexdump();
+        }
+      }, 600);
+      
+      // Bonus: clicking on win address in info sets payload target
+      document.getElementById('win-addr').onclick = () => {
+        const input = document.getElementById('ret-target');
+        if (input) {
+          input.value = document.getElementById('win-addr').textContent;
+          input.classList.add('!border-emerald-500');
+          setTimeout(() => input.classList.remove('!border-emerald-500'), 900);
+        }
+      };
+      
+      console.log('%c[OK] 정통 포너블 에뮬레이터 로드 완료 (single-file)', 'color:#166534');
+    }
+
+    function resetEmulator(keepPayload = false) {
+      if (!currentChallenge) return;
+      
+      setInitialStack(currentChallenge);
+      updateRegisters();
+      renderStack();
+      renderGdbMemoryExamine();
+      
+      if (!keepPayload) {
+        // keep payload text
+        clearParsedPayloadView();
+      }
+      
+      // clear console partially
+      const out = document.getElementById('console-output');
+      if (out.children.length > 4) {
+        out.innerHTML = '';
+      }
+      refreshHexdump();
+    }
+
+    function resetAll() {
+      location.reload();
+    }
+
+    // Boot
+    function boot() {
+      initTailwind();
+      initEmulator();
+      
+      // Easter egg: type "1337" in console area
+      let seq = '';
+      document.getElementById('console-output').addEventListener('click', () => {
+        seq += 'x';
+        if (seq.endsWith('xxx')) {
+          seq = '';
+          const c = currentChallenge;
+          if (c) {
+            const ta = document.getElementById('payload-input');
+            ta.value = `"A"*${c.bufferSize + 12} + p32(0x${c.winAddr.toString(16)})`;
+            addConsole('%c[easter] 1337 payload loaded', 'color:#eab308');
+          }
+        }
+      });
+      
+      // Make it feel more alive: allow pressing Enter in payload field to quick inject
+      const payloadTA = document.getElementById('payload-input');
+      payloadTA.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) {
+          ev.preventDefault();
+          injectPayloadAndRun();
+        }
+      });
+      
+      // Global: allow "help" command feel
+      window.PWN = {
+        getState: () => ({ regs, state, memory }),
+        run: runFullSimulation,
+        inject: (s) => { document.getElementById('payload-input').value = s; injectPayloadAndRun(); }
+      };
+    }
+    
+    window.onload = boot;
+  </script>
+</body>
+</html>
